@@ -342,6 +342,8 @@ float *processRawFrame ( char *fname, int f, int num_frames, int *num_points )
 
   float frame_angle = ((float) f) * (360.0f / (float) num_frames) ;
 
+
+float brightness = 0;
   for ( int j = 0 ; j < np ; j++ )
   {
     /* Find the brightest pixel */
@@ -358,11 +360,9 @@ float *processRawFrame ( char *fname, int f, int num_frames, int *num_points )
                          ((float)(( px >>  8 ) & 0xFF)) / 255.0f ;
 */
 
-float r = ((float)(( px >> 24 ) & 0xFF)) / 255.0f;
-float brightness;
-if (r > 0.60) brightness = r;
 
-//if(r > 0.00) printf("RED:  %05f\r",r);
+brightness = ((float)(( px >> 24 ) & 0xFF)) / 255.0f;
+
 
       if ( brightness > max )
       {
@@ -383,8 +383,8 @@ if (r > 0.60) brightness = r;
     float z = atan ( (CAMERA_VFOV * DEGREES_TO_RADIANS / 2.0f) ) *
                   2.0f * CAMERA_DISTANCE * (float) j / (float) np ;
 
-    // if ( max < 1.50 )
-    //   x = y = 0.0f ;
+    if ( max < 0.5 )
+       z = x = y = 0.0f ;
 
     res [ 3 * j + 0 ] = x ;
     res [ 3 * j + 1 ] = y ;
