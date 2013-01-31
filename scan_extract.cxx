@@ -13,6 +13,10 @@ extern "C"
 
 #include <math.h>
 
+//#define AC3DB  //Use for this format...who knows what it is....
+
+//Default format is point cloud
+
 /*================================================================*/
 /*    USER EDITABLE SECTION:  Change these to suit your scanner   */
 /*================================================================*/
@@ -25,12 +29,12 @@ extern "C"
 #define CAMERA_DISTANCE     0.30f   /* Meters  */
 #define LASER_OFFSET        15.0f   /* Degrees */
 
-#define HORIZ_AVG           10 /* Num horizontal points to average */
-#define VERT_AVG            10 /* Num vertical points to average */
+#define HORIZ_AVG           1 /* Num horizontal points to average */
+#define VERT_AVG            1 /* Num vertical points to average */
 /*================================================================*/
 
-#define FRAME_SKIP          10  /* Use every n'th frame for speed */
-#define POINT_SKIP          10  /* Use every n'th scanline for speed*/
+#define FRAME_SKIP          1  /* Use every n'th frame for speed */
+#define POINT_SKIP          1  /* Use every n'th scanline for speed*/
 #define RADIANS_TO_DEGREES  (180.0f / 3.14159f )
 #define DEGREES_TO_RADIANS  (3.14159f / 180.0f )
 
@@ -262,6 +266,8 @@ unsigned int Image::getPixelArea ( float x1, float y1,
       r_tot += getPixelRed   ( i, j ) * area ;
       g_tot += getPixelGreen ( i, j ) * area ;
       b_tot += getPixelBlue  ( i, j ) * area ;
+      g_tot += 0;
+      b_tot += 0;
     }
 
   if ( rgb_area <= 0.0f )
@@ -343,13 +349,20 @@ float *processRawFrame ( char *fname, int f, int num_frames, int *num_points )
     float max  = 0.0f ;
     int maxpos = -1 ;
 
-    for ( int i = 0 ; i < jpg -> getWidth () ; i++ )
+    for ( int i = 0 ; i < jpg -> getWidth()/2 ; i++ )
     {
       unsigned int px = jpg -> getPixel ( i, j*POINT_SKIP ) ;
-
+/*
       float brightness = ((float)(( px >> 24 ) & 0xFF)) / 255.0f +
                          ((float)(( px >> 16 ) & 0xFF)) / 255.0f +
                          ((float)(( px >>  8 ) & 0xFF)) / 255.0f ;
+*/
+
+float r = ((float)(( px >> 24 ) & 0xFF)) / 255.0f;
+float brightness;
+if (r > 0.60) brightness = r;
+
+//if(r > 0.00) printf("RED:  %05f\r",r);
 
       if ( brightness > max )
       {
@@ -388,7 +401,7 @@ void outputFrames ( int num_points, int num_frames, float **vertices )
 {
   int num_outframes = num_frames / HORIZ_AVG ;
   int num_outpoints = num_points / VERT_AVG ;
-
+#ifdef AC3DB
   printf ( "AC3Db\n" ) ;
   printf ( "MATERIAL \"ac3dmat1\" rgb 1 1 1  amb 0.2 0.2 0.2  "
            "emis 0 0 0  spec 0.5 0.5 0.5  shi 10  trans 0\n" ) ;
@@ -459,6 +472,27 @@ void outputFrames ( int num_points, int num_frames, float **vertices )
 
   }
   printf ( "kids 0\n" ) ;
+#else
+  for ( int f = 0 ; f < num_outframes ; f++ )
+    for ( int i = 0 ; i < num_outpoints ; i++ )
+    {
+      float avg [ 3 ] = { 0.0f, 0.0f, 0.0f } ;
+
+      for ( int ff = 0 ; ff < HORIZ_AVG ; ff++ )
+        for ( int ii = 0 ; ii < VERT_AVG ; ii++ )
+        {
+          avg [ 0 ] += vertices[f*HORIZ_AVG+ff][(i*VERT_AVG+ii)*3+0] ;
+          avg [ 1 ] += vertices[f*HORIZ_AVG+ff][(i*VERT_AVG+ii)*3+1] ;
+          avg [ 2 ] += vertices[f*HORIZ_AVG+ff][(i*VERT_AVG+ii)*3+2] ;
+        }
+
+      avg [ 0 ] /= (float)( HORIZ_AVG*VERT_AVG ) ;
+      avg [ 1 ] /= (float)( HORIZ_AVG*VERT_AVG ) ;
+      avg [ 2 ] /= (float)( HORIZ_AVG*VERT_AVG ) ;
+
+      printf ( "%f %f %f\n", avg [ 0 ], avg [ 1 ], avg [ 2 ] ) ;
+    }
+#endif
 }
 
 
@@ -474,7 +508,7 @@ int main ( int argc, char **argv )
     FILE *tmp ;
     char fname [ 100 ] ;
 
-    sprintf ( fname, "%08d.jpg", i*FRAME_SKIP ) ;
+    sprintf ( fname, "%08d.jpg", (i+1)*FRAME_SKIP ) ;
 
     fprintf ( stderr, "Checking %s\r", fname ) ;
 
@@ -496,7 +530,7 @@ int main ( int argc, char **argv )
   {
     int np ;
     char fname [ 100 ] ;
-    sprintf ( fname, "%08d.jpg", i*FRAME_SKIP ) ;
+    sprintf ( fname, "%08d.jpg", (i+1)*FRAME_SKIP ) ;
 
     fprintf ( stderr, "Processing frame %d/%d '%s'\r",
                                           i, num_frames, fname ) ;
